@@ -1,0 +1,53 @@
+╔══════════════════════════════════════════════════════════╗
+║     ⚠️  ΔΙΑΓΡΑΦΗ ΑΡΧΕΙΟΥ ΑΠΟ GITHUB - URGENT ⚠️        ║
+╚══════════════════════════════════════════════════════════╝
+
+Το αρχείο page_COUNTDOWN_FIX.tsx είναι ΑΚΟΜΑ στο GitHub!
+
+ΛΥΣΗ - 2 τρόποι:
+
+═══════════════════════════════════════════════════════════
+ΤΡΟΠΟΣ 1: Από τον υπολογιστή σου
+═══════════════════════════════════════════════════════════
+
+1. Clone το repo:
+```bash
+git clone https://github.com/manolispetra/motodogs.git
+cd motodogs
+```
+
+2. Διέγραψε το αρχείο:
+```bash
+rm src/app/page_COUNTDOWN_FIX.tsx
+```
+
+3. Commit & Push:
+```bash
+git add .
+git commit -m "Remove incomplete countdown fix file"
+git push origin main
+```
+
+═══════════════════════════════════════════════════════════
+ΤΡΟΠΟΣ 2: Από το GitHub web interface
+═══════════════════════════════════════════════════════════
+
+1. Πήγαινε: https://github.com/manolispetra/motodogs
+
+2. Navigate: src → app → page_COUNTDOWN_FIX.tsx
+
+3. Click το αρχείο
+
+4. Click το "..." menu (πάνω δεξιά)
+
+5. Click "Delete file"
+
+6. Commit: "Remove incomplete file"
+
+═══════════════════════════════════════════════════════════
+Η ΜΕΤΑ:
+═══════════════════════════════════════════════════════════
+
+Vercel θα κάνει auto-redeploy και το build θα περάσει!
+
+═══════════════════════════════════════════════════════════

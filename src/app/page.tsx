@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter } from 'lucide-react';
+import { X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter, ExternalLink } from 'lucide-react';
 import { MOTODOGS, PRESALE_WALLET, COLLECTION_STATS, MotoDog } from '../config/nfts';
 import Link from 'next/link';
 
 const AMOUNT_SATS = 7442;
 const AMOUNT_BTC = (AMOUNT_SATS / 100000000).toFixed(8);
 
-// Discord icon
 const DiscordIcon = () => (
   <svg width="20" height="20" viewBox="0 0 71 55" fill="currentColor">
     <path d="M60.1045 4.8978C55.5792 2.8214 50.7265 1.2916 45.6527 0.41542C45.5603 0.39851 45.468 0.440769 45.4204 0.525289C44.7963 1.6353 44.105 3.0834 43.6209 4.2216C38.1637 3.4046 32.7345 3.4046 27.3892 4.2216C26.905 3.0581 26.1886 1.6353 25.5617 0.525289C25.5141 0.443589 25.4218 0.40133 25.3294 0.41542C20.2584 1.2888 15.4057 2.8186 10.8776 4.8978C10.8384 4.9147 10.8048 4.9429 10.7825 4.9795C1.57795 18.7309 -0.943561 32.1443 0.293408 45.3914C0.299005 45.4562 0.335386 45.5182 0.385761 45.5576C6.45866 50.0174 12.3413 52.7249 18.1147 54.5195C18.2071 54.5477 18.305 54.5139 18.3638 54.4378C19.7295 52.5728 20.9469 50.6063 21.9907 48.5383C22.0523 48.4172 21.9935 48.2735 21.8676 48.2256C19.9366 47.4931 18.0979 46.6 16.3292 45.5858C16.1893 45.5041 16.1781 45.304 16.3068 45.2082C16.679 44.9293 17.0513 44.6391 17.4067 44.3461C17.471 44.2926 17.5606 44.2813 17.6362 44.3151C29.2558 49.6202 41.8354 49.6202 53.3179 44.3151C53.3935 44.2785 53.4831 44.2898 53.5502 44.3433C53.9057 44.6363 54.2779 44.9293 54.6529 45.2082C54.7816 45.304 54.7732 45.5041 54.6333 45.5858C52.8646 46.6197 51.0259 47.4931 49.0921 48.2228C48.9662 48.2707 48.9102 48.4172 48.9718 48.5383C50.038 50.6034 51.2554 52.5699 52.5959 54.435C52.6519 54.5139 52.7526 54.5477 52.845 54.5195C58.6464 52.7249 64.529 50.0174 70.6019 45.5576C70.6551 45.5182 70.6887 45.459 70.6943 45.3942C72.1747 30.0791 68.2147 16.7757 60.1968 4.9823C60.1772 4.9429 60.1437 4.9147 60.1045 4.8978ZM23.7259 37.3253C20.2276 37.3253 17.3451 34.1136 17.3451 30.1693C17.3451 26.225 20.1717 23.0133 23.7259 23.0133C27.308 23.0133 30.1626 26.2532 30.1066 30.1693C30.1066 34.1136 27.28 37.3253 23.7259 37.3253ZM47.3178 37.3253C43.8196 37.3253 40.9371 34.1136 40.9371 30.1693C40.9371 26.225 43.7636 23.0133 47.3178 23.0133C50.9 23.0133 53.7545 26.2532 53.6986 30.1693C53.6986 34.1136 50.9 37.3253 47.3178 37.3253Z"/>
@@ -20,7 +19,8 @@ export default function HomePage() {
   const [account, setAccount] = useState<{ address: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [selectedNFT, setSelectedNFT] = useState<MotoDog | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [txHash, setTxHash] = useState('');
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [totalMinted, setTotalMinted] = useState(0);
 
@@ -70,7 +70,6 @@ export default function HomePage() {
       if (accounts && accounts[0]) {
         setAccount({ address: accounts[0] });
         setIsConnected(true);
-        console.log('✅ Connected:', accounts[0]);
       }
     } catch (error: any) {
       console.error('Connect error:', error);
@@ -89,64 +88,46 @@ export default function HomePage() {
       return;
     }
     setSelectedNFT(nft);
+    setShowPaymentModal(true);
   };
 
-  const handlePrebuy = async () => {
-    const wallet = getWallet();
-    
-    if (!wallet) {
-      alert("Please install OP_WALLET or UniSat Wallet!");
+  // Open wallet with payment URI
+  const openWalletPayment = () => {
+    // Bitcoin Payment URI (BIP-21)
+    const paymentURI = `bitcoin:${PRESALE_WALLET}?amount=${AMOUNT_BTC}`;
+    window.open(paymentURI, '_blank');
+  };
+
+  const handleSubmitTxHash = () => {
+    if (!txHash || !selectedNFT || !account) {
+      alert('Please enter a valid transaction hash');
       return;
     }
 
-    if (!wallet.sendBitcoin) {
-      alert("Your wallet doesn't support sendBitcoin. Please update your wallet extension.");
-      return;
-    }
+    // Save purchase
+    const purchaseId = `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem(purchaseId, JSON.stringify({
+      nftId: selectedNFT.id,
+      nftName: selectedNFT.name,
+      nftImage: selectedNFT.image,
+      address: account.address,
+      txHash: txHash,
+      timestamp: Date.now(),
+      mdogTokens: COLLECTION_STATS.airdropPerNFT
+    }));
 
-    setLoading(true);
+    setTotalMinted(prev => prev + 1);
+    alert(`✅ NFT claimed! You'll receive ${COLLECTION_STATS.airdropPerNFT} MDOG tokens on May 22, 2026`);
     
-    try {
-      console.log('🚀 Calling sendBitcoin...');
-      
-      const txid = await wallet.sendBitcoin(PRESALE_WALLET, AMOUNT_SATS);
-      
-      console.log('✅ TX SUCCESS:', txid);
-      alert(`✅ Transaction successful! TxID: ${txid}`);
-      
-      if (selectedNFT && account) {
-        const purchaseId = `purchase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        localStorage.setItem(purchaseId, JSON.stringify({
-          nftId: selectedNFT.id,
-          nftName: selectedNFT.name,
-          nftImage: selectedNFT.image,
-          address: account.address,
-          txHash: txid,
-          timestamp: Date.now(),
-          mdogTokens: COLLECTION_STATS.airdropPerNFT
-        }));
-        
-        setTotalMinted(prev => prev + 1);
-      }
-      
-      setSelectedNFT(null);
-      
-    } catch (error: any) {
-      console.error('❌ TX Error:', error);
-      
-      if (error.message?.includes("reject") || error.message?.includes("cancel")) {
-        alert("❌ Transaction cancelled");
-      } else {
-        alert("❌ Error: " + (error.message || "Transaction failed"));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const closePurchaseModal = () => {
     setSelectedNFT(null);
-    setLoading(false);
+    setShowPaymentModal(false);
+    setTxHash('');
+  };
+
+  const closeModal = () => {
+    setSelectedNFT(null);
+    setShowPaymentModal(false);
+    setTxHash('');
   };
 
   const scrollToSection = (section: string) => {
@@ -426,52 +407,85 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Payment Modal */}
       <AnimatePresence>
-        {selectedNFT && (
+        {showPaymentModal && selectedNFT && (
           <motion.div
             className="fixed inset-0 bg-black/90 backdrop-blur-xl z-50 flex items-center justify-center p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={closePurchaseModal}
+            onClick={closeModal}
           >
             <motion.div
-              className="relative bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-cyan-400/30 rounded-3xl max-w-md w-full p-8"
+              className="relative bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-cyan-400/30 rounded-3xl max-w-lg w-full p-8"
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
               onClick={e => e.stopPropagation()}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-purple-500/5 blur-xl rounded-3xl" />
-              
               <div className="relative">
                 <h3 className="text-2xl font-black mb-6 text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                  CONFIRM MINT
+                  PAYMENT INSTRUCTIONS
                 </h3>
                 
-                <div className="flex gap-6 mb-8">
-                  <img src={selectedNFT.image} alt={selectedNFT.name} className="w-28 h-28 rounded-2xl border border-cyan-400/30" />
+                <div className="flex gap-6 mb-6">
+                  <img src={selectedNFT.image} alt={selectedNFT.name} className="w-24 h-24 rounded-2xl border border-cyan-400/30" />
                   <div>
                     <h4 className="text-xl font-black mb-2">{selectedNFT.name}</h4>
-                    <p className="text-sm text-gray-400 mb-4">{selectedNFT.title}</p>
+                    <p className="text-sm text-gray-400 mb-2">{selectedNFT.title}</p>
                     <p className="text-2xl font-black text-cyan-400">{AMOUNT_BTC} BTC</p>
-                    <p className="text-sm text-purple-400 mt-2">+ {COLLECTION_STATS.airdropPerNFT.toLocaleString()} MDOG</p>
+                    <p className="text-sm text-purple-400">+ {COLLECTION_STATS.airdropPerNFT.toLocaleString()} MDOG</p>
                   </div>
+                </div>
+
+                <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-2xl p-4 mb-6">
+                  <p className="text-sm text-yellow-400 mb-3 font-bold">⚠️ PAYMENT STEPS:</p>
+                  <ol className="text-sm text-gray-300 space-y-2">
+                    <li>1. Click "Open Wallet" below</li>
+                    <li>2. Send <span className="text-cyan-400 font-bold">{AMOUNT_BTC} BTC</span> from your OpNet wallet</li>
+                    <li>3. Copy the transaction hash</li>
+                    <li>4. Paste it below and click "Claim NFT"</li>
+                  </ol>
+                </div>
+
+                <div className="bg-black/50 rounded-lg p-4 mb-4">
+                  <p className="text-xs text-gray-500 mb-2">Send To:</p>
+                  <p className="text-xs text-cyan-400 font-mono break-all">{PRESALE_WALLET}</p>
+                </div>
+
+                <button
+                  onClick={openWalletPayment}
+                  className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full font-bold mb-4 flex items-center justify-center gap-2 hover:scale-105 transition"
+                >
+                  <ExternalLink size={18} />
+                  OPEN WALLET & PAY
+                </button>
+
+                <div className="mb-4">
+                  <label className="text-sm text-gray-400 mb-2 block">Transaction Hash:</label>
+                  <input
+                    type="text"
+                    value={txHash}
+                    onChange={(e) => setTxHash(e.target.value)}
+                    placeholder="Paste your transaction hash here..."
+                    className="w-full bg-black/50 border border-cyan-400/30 rounded-lg px-4 py-3 text-sm font-mono"
+                  />
                 </div>
                 
                 <div className="flex gap-3">
                   <button
-                    onClick={closePurchaseModal}
+                    onClick={closeModal}
                     className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-full font-bold transition"
                   >
                     CANCEL
                   </button>
                   <button
-                    onClick={handlePrebuy}
-                    disabled={loading}
-                    className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition"
+                    onClick={handleSubmitTxHash}
+                    disabled={!txHash}
+                    className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full font-bold disabled:opacity-30 transition"
                   >
-                    {loading ? <Loader2 className="animate-spin" size={20} /> : 'MINT NOW'}
+                    CLAIM NFT
                   </button>
                 </div>
               </div>

@@ -1,0 +1,29 @@
+# 🚀 QUICK FIX - 30 Seconds
+
+## The Error:
+```
+Error: The Next.js output directory "out" was not found
+```
+
+## The Fix:
+1. Go to Vercel Dashboard → Your Project → **Settings** → **General**
+2. Find "Build & Development Settings"
+3. Change **Output Directory** from `out` to `.next`
+4. Click **Save**
+5. Go to **Deployments** → Click "..." → **Redeploy**
+6. ✅ Done!
+
+---
+
+## Even Faster Fix (CLI):
+```bash
+npm i -g vercel
+cd motodogs-presale-fixed
+vercel
+```
+
+CLI uses correct `.next` automatically!
+
+---
+
+**Read `VERCEL_DASHBOARD_FIX.md` for detailed instructions.**
