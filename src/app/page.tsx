@@ -260,7 +260,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <img src="/banner.jpg" alt="MotoDogs Banner" className="w-full h-auto" />
+            <img src="/banner.jpg" alt="MotoDogs Banner" className="w-full max-h-[400px] object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
           </motion.div>
 
@@ -288,57 +288,6 @@ export default function HomePage() {
                   </div>
                 </div>
               ))}
-            </div>
-            <p className="text-sm text-gray-400 mt-6">{totalMinted} / {COLLECTION_STATS.totalSupply} MINTED</p>
-          </motion.div>
-        </div>
-      </section>
-
-      <section id="story" className="relative py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <motion.div 
-            className="relative bg-gradient-to-br from-cyan-500/5 to-purple-500/5 border border-cyan-400/20 rounded-3xl p-12"
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-          >
-            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
-            
-            <div className="relative">
-              <h2 className="text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-                THE LEGEND OF THE CHROME PACK
-              </h2>
-              
-              <div className="space-y-6 text-lg text-gray-300 leading-relaxed">
-                <p className="text-2xl font-bold text-cyan-400">
-                  BEFORE THE BLOCKCHAIN... THERE WAS THE BACKSTREET. 🏍️
-                </p>
-                
-                <p>Seven strays. Seven streets. One destiny written in code and chrome.</p>
-                
-                <p><span className="text-cyan-400 font-black">DIESEL DUKE</span> — The Bulldog who coded Bitcoin before Satoshi made it cool. Rolled a Harley with a hardware wallet strapped to the tank. Legend says he mined the first block on a calculator in '08. Nobody believed him. They do now. 💎</p>
-                
-                <p><span className="text-purple-400 font-black">MIDNIGHT HOWLER</span> — Husky hacker, dark web drifter. Ran the Silk Road 2.0 before the feds even knew what HTTPS was. Disappeared into the metaverse in 2014. Some say he's still there, trading NFTs in the shadow markets. 🌙</p>
-                
-                <p><span className="text-yellow-400 font-black">TINY THUNDER</span> — Chihuahua with a god complex and a Lambo fund. Day-traded his way from food stamps to Forbes. Lost it all in LUNA. Made it back in DOGE. Respect the hustle. ⚡</p>
-                
-                <p><span className="text-orange-400 font-black">BEACH BARKER</span> — Golden Retriever influencer before Instagram existed. Surfed, coded smart contracts on the beach, retired at 25. Now teaches DeFi to dolphins. Living the dream. 🏖️</p>
-                
-                <p><span className="text-pink-400 font-black">ROSA ROCKET</span> — Poodle princess turned punk rocker turned protocol pioneer. Built the first dog-to-dog payment network. "Venmo? Nah, WOOF-mo." She said it first. 💅</p>
-                
-                <p><span className="text-gray-400 font-black">SHADOW STRIDER</span> — The silent Husky. No socials. No fucks. Just code, coffee, cold wallets. Rumor has it he holds 10% of all Bitcoin. Rumor has it he doesn't exist. Rumor has it you're looking at him right now. 👁️</p>
-                
-                <p><span className="text-red-400 font-black">DUKE JR.</span> — The son who surpassed the father. Diesel taught him Solidity. He taught the world Rust. Now he's teaching OpNet. The cycle continues. 🔥</p>
-                
-                <p className="text-3xl font-black text-center mt-12 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
-                  7777 SLOTS. 7 LEGENDS. 1 BLOCKCHAIN. MAY 22. 🐾⚡
-                </p>
-                
-                <p className="text-center text-xl text-gray-400 mt-6">
-                  Ride or die. No paper paws. Diamond collars only.
-                </p>
-              </div>
             </div>
           </motion.div>
         </div>
@@ -394,6 +343,56 @@ export default function HomePage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section id="story" className="relative py-20 px-6">
+        <div className="max-w-5xl mx-auto">
+          <motion.div 
+            className="relative bg-gradient-to-br from-cyan-500/5 to-purple-500/5 border border-cyan-400/20 rounded-3xl p-12"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+          >
+            <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl" />
+            
+            <div className="relative">
+              <h2 className="text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+                THE LEGEND OF THE CHROME PACK
+              </h2>
+              
+              <div className="space-y-6 text-lg text-gray-300 leading-relaxed">
+                <p className="text-2xl font-bold text-cyan-400">
+                  BEFORE THE BLOCKCHAIN... THERE WAS THE BACKSTREET. 🏍️
+                </p>
+                
+                <p>Seven strays. Seven streets. One destiny written in code and chrome.</p>
+                
+                <p><span className="text-cyan-400 font-black">DIESEL DUKE</span> — The Bulldog who coded Bitcoin before Satoshi made it cool. Rolled a Harley with a hardware wallet strapped to the tank. Legend says he mined the first block on a calculator in '08. Nobody believed him. They do now. 💎</p>
+                
+                <p><span className="text-purple-400 font-black">MIDNIGHT HOWLER</span> — Husky hacker, dark web drifter. Ran the Silk Road 2.0 before the feds even knew what HTTPS was. Disappeared into the metaverse in 2014. Some say he's still there, trading NFTs in the shadow markets. 🌙</p>
+                
+                <p><span className="text-yellow-400 font-black">TINY THUNDER</span> — Chihuahua with a god complex and a Lambo fund. Day-traded his way from food stamps to Forbes. Lost it all in LUNA. Made it back in DOGE. Respect the hustle. ⚡</p>
+                
+                <p><span className="text-orange-400 font-black">BEACH BARKER</span> — Golden Retriever influencer before Instagram existed. Surfed, coded smart contracts on the beach, retired at 25. Now teaches DeFi to dolphins. Living the dream. 🏖️</p>
+                
+                <p><span className="text-pink-400 font-black">ROSA ROCKET</span> — Poodle princess turned punk rocker turned protocol pioneer. Built the first dog-to-dog payment network. "Venmo? Nah, WOOF-mo." She said it first. 💅</p>
+                
+                <p><span className="text-gray-400 font-black">SHADOW STRIDER</span> — The silent Husky. No socials. No fucks. Just code, coffee, cold wallets. Rumor has it he holds 10% of all Bitcoin. Rumor has it he doesn't exist. Rumor has it you're looking at him right now. 👁️</p>
+                
+                <p><span className="text-red-400 font-black">DUKE JR.</span> — The son who surpassed the father. Diesel taught him Solidity. He taught the world Rust. Now he's teaching OpNet. The cycle continues. 🔥</p>
+                
+                <p className="text-3xl font-black text-center mt-12 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+                  7777 SLOTS. 7 LEGENDS. 1 BLOCKCHAIN. MAY 22. 🐾⚡
+                </p>
+                
+                <p className="text-center text-xl text-gray-400 mt-6">
+                  Ride or die. No paper paws. Diamond collars only.
+                </p>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
