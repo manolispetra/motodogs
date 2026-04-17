@@ -286,10 +286,6 @@ export default function HomePage() {
 
       <section id="collection" className="relative py-20 px-6">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-5xl font-black text-center mb-12 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
-            CHOOSE YOUR LEGEND
-          </h2>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {MOTODOGS.map((dog, i) => (
               <motion.div
