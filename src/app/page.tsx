@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter } from 'lucide-react';
 import { MOTODOGS, PRESALE_WALLET, COLLECTION_STATS, MotoDog } from '../config/nfts';
 import Link from 'next/link';
+import PurchaseTicker from '../components/PurchaseTicker';
 
 const AMOUNT_SATS = 7442;
 const AMOUNT_BTC = (AMOUNT_SATS / 100000000).toFixed(8);
@@ -210,7 +211,6 @@ export default function HomePage() {
               <img src="/logo-new.png" alt="MotoDogs" className="h-16 w-16" />
               <div>
                 <h1 className="text-2xl font-black tracking-tight">MOTODOGS</h1>
-                <p className="text-xs text-cyan-400 font-mono">EST. 2024</p>
               </div>
             </div>
 
@@ -253,22 +253,13 @@ export default function HomePage() {
         </div>
       </nav>
 
-      <section className="relative pt-32 pb-20 px-6">
+      <section className="relative pt-40 pb-20 px-6">
         <div className="max-w-7xl mx-auto">
           <motion.div 
-            className="relative rounded-3xl overflow-hidden border border-cyan-500/30 shadow-2xl shadow-cyan-500/20"
-            initial={{ opacity: 0, y: 50 }}
+            className="text-center"
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-          >
-            <img src="/banner.jpg" alt="MotoDogs Banner" className="w-full max-h-[400px] object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
-          </motion.div>
-
-          <motion.div 
-            className="mt-12 text-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.1 }}
           >
             <p className="text-sm font-mono text-cyan-400 mb-4 tracking-widest">LAUNCH IN</p>
             <div className="flex justify-center gap-4 flex-wrap">
@@ -364,29 +355,36 @@ export default function HomePage() {
               
               <div className="space-y-6 text-lg text-gray-300 leading-relaxed">
                 <p className="text-2xl font-bold text-cyan-400">
-                  BEFORE THE BLOCKCHAIN... THERE WAS THE BACKSTREET. 🏍️
+                  BEFORE THE MAINNET… THERE WAS THE STREET. 🏍️
                 </p>
-                
-                <p>Seven strays. Seven streets. One destiny written in code and chrome.</p>
-                
-                <p><span className="text-cyan-400 font-black">DIESEL DUKE</span> — The Bulldog who coded Bitcoin before Satoshi made it cool. Rolled a Harley with a hardware wallet strapped to the tank. Legend says he mined the first block on a calculator in '08. Nobody believed him. They do now. 💎</p>
-                
-                <p><span className="text-purple-400 font-black">MIDNIGHT HOWLER</span> — Husky hacker, dark web drifter. Ran the Silk Road 2.0 before the feds even knew what HTTPS was. Disappeared into the metaverse in 2014. Some say he's still there, trading NFTs in the shadow markets. 🌙</p>
-                
-                <p><span className="text-yellow-400 font-black">TINY THUNDER</span> — Chihuahua with a god complex and a Lambo fund. Day-traded his way from food stamps to Forbes. Lost it all in LUNA. Made it back in DOGE. Respect the hustle. ⚡</p>
-                
-                <p><span className="text-orange-400 font-black">BEACH BARKER</span> — Golden Retriever influencer before Instagram existed. Surfed, coded smart contracts on the beach, retired at 25. Now teaches DeFi to dolphins. Living the dream. 🏖️</p>
-                
-                <p><span className="text-pink-400 font-black">ROSA ROCKET</span> — Poodle princess turned punk rocker turned protocol pioneer. Built the first dog-to-dog payment network. "Venmo? Nah, WOOF-mo." She said it first. 💅</p>
-                
-                <p><span className="text-gray-400 font-black">SHADOW STRIDER</span> — The silent Husky. No socials. No fucks. Just code, coffee, cold wallets. Rumor has it he holds 10% of all Bitcoin. Rumor has it he doesn't exist. Rumor has it you're looking at him right now. 👁️</p>
-                
-                <p><span className="text-red-400 font-black">DUKE JR.</span> — The son who surpassed the father. Diesel taught him Solidity. He taught the world Rust. Now he's teaching OpNet. The cycle continues. 🔥</p>
-                
+
+                <p>Seven strays. Seven streets. One destiny written in UTXOs and chrome.</p>
+
+                <p className="border-l-2 border-cyan-400/40 pl-6 italic text-gray-400">
+                  On <span className="text-cyan-400 font-semibold not-italic">March 19, 2026</span>, Bitcoin woke up smart. OP_NET went live on L1 — no bridges, no wrappers, no new chain. Every transaction on OP_NET <span className="text-white not-italic">is</span> a Bitcoin transaction. BTC is the gas. The founders took the credit. The streets knew better.
+                </p>
+
+                <p>These dogs were running <span className="text-cyan-400 font-semibold">P2OP</span> outputs before they had a name. Deploying kibble contracts on paper napkins. Settling beefs in sats, finalizing them in epochs. They didn't wait for consensus. They <span className="italic">were</span> consensus.</p>
+
+                <p><span className="text-cyan-400 font-black">DIESEL DUKE</span> — The OG Bulldog. Coded Bitcoin before Satoshi made it cool. Rolled a Harley with a hardware wallet strapped to the tank. Legend says he mined the first block on a pocket calculator in '08 and deployed the first OP-20 on a bar napkin the night before mainnet. Nobody believed him. They do now. 💎</p>
+
+                <p><span className="text-purple-400 font-black">MIDNIGHT HOWLER</span> — Husky hacker. Dark web drifter. Cracked post-quantum <span className="font-mono text-sm text-purple-300">MLDSA</span> on a laptop powered by three Red Bulls and spite — then handed the exploit back with a sticky note: "patch it, bark at me if you need me." Disappeared into the mempool in 2014. Some say he's still there, trading OP-20s from the shadow nodes. 🌙</p>
+
+                <p><span className="text-yellow-400 font-black">TINY THUNDER</span> — Chihuahua. God complex. Lambo fund. Day-traded his way from food stamps to Forbes farming <span className="text-yellow-300 font-semibold">$PILL</span> on <span className="text-yellow-300 font-semibold">MotoSwap</span>. Lost it all on LUNA. Made it back on the next epoch. "Slow blocks, fast money" — tattooed on his left paw. Respect the hustle. ⚡</p>
+
+                <p><span className="text-orange-400 font-black">BEACH BARKER</span> — Golden Retriever. DeFi influencer before Instagram existed. Surfed, deployed yield farms at sunset, retired at 25 with zero wrapped BTC in his bag. His only tweet: <span className="italic">"Why wrap Bitcoin when Bitcoin is the gas?"</span> — 47k retweets. Now teaches native DeFi to dolphins. Living the dream. 🏖️</p>
+
+                <p><span className="text-pink-400 font-black">ROSA ROCKET</span> — Poodle princess. Punk rocker. Protocol pioneer. Authored the first dog-to-dog OP-20 payment channel before OP_NET had a website. "Venmo? Nah, <span className="italic">WOOF-mo</span> — settled on L1, finalized in one epoch, no custodian, no daddy." She said it first. 💅</p>
+
+                <p><span className="text-gray-300 font-black">SHADOW STRIDER</span> — The silent Husky. No socials. No fucks. Just code, black coffee, cold wallets, and a <span className="text-gray-100 font-semibold">Proof of Calculation</span> rig running in a cabin no one can find. Rumor has it he holds 10% of all Bitcoin. Rumor has it he doesn't exist. Rumor has it you're looking at him right now. 👁️</p>
+
+                <p><span className="text-red-400 font-black">DUKE JR.</span> — The son who surpassed the father. Diesel taught him Solidity. He taught the world Rust. Then OP_NET taught him AssemblyScript — and he taught the VM. The cycle continues on Bitcoin itself. 🔥</p>
+
                 <p className="text-3xl font-black text-center mt-12 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
-                  7777 SLOTS. 7 LEGENDS. 1 BLOCKCHAIN. MAY 22. 🐾⚡
+                  7777 SLOTS. 7 LEGENDS. 1 BLOCKCHAIN.<br/>
+                  NO BRIDGES. NO WRAPPERS. PURE BITCOIN. 🐾⚡
                 </p>
-                
+
                 <p className="text-center text-xl text-gray-400 mt-6">
                   Ride or die. No paper paws. Diamond collars only.
                 </p>
@@ -492,6 +490,8 @@ export default function HomePage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <PurchaseTicker />
 
       <footer className="relative border-t border-white/10 py-12 text-center">
         <p className="text-gray-500 font-mono text-sm">© 2025 MOTODOGS • BUILT ON BITCOIN OPNET</p>
