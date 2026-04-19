@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter } from 'lucide-react';
+import {
+  X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter,
+  Gamepad2, Trophy, Award, Flame, Volume2, User as UserIcon, Sparkles
+} from 'lucide-react';
 import { MOTODOGS, PRESALE_WALLET, COLLECTION_STATS, MotoDog } from '../config/nfts';
 import Link from 'next/link';
 import PurchaseTicker from '../components/PurchaseTicker';
@@ -17,6 +20,11 @@ const DiscordIcon = () => (
   </svg>
 );
 
+// ============ ARENA types ============
+type LBEntry = { addr: string; name: string; pts: number; wins: number };
+type PlayerStats = { matches: number; wins: number; flawless: number; bestWin: string };
+const DEFAULT_STATS: PlayerStats = { matches: 0, wins: 0, flawless: 0, bestWin: '' };
+
 export default function HomePage() {
   const [account, setAccount] = useState<{ address: string } | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -24,6 +32,17 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [totalMinted, setTotalMinted] = useState(0);
+
+  // ============ ARENA state (NEW) ============
+  const [username, setUsername] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [showUsernameModal, setShowUsernameModal] = useState(false);
+  const [playerPoints, setPlayerPoints] = useState(0);
+  const [playerStats, setPlayerStats] = useState<PlayerStats>(DEFAULT_STATS);
+  const [leaderboard, setLeaderboard] = useState<LBEntry[]>([]);
+  const [lastReward, setLastReward] = useState<{ pts: number; reason: string } | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
+  const arenaIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     const targetDate = new Date('2026-05-22T00:00:00Z').getTime();
@@ -113,7 +132,6 @@ export default function HomePage() {
       console.log('To:', PRESALE_WALLET);
       console.log('Amount:', AMOUNT_SATS, 'sats');
       
-      // Correct OpNet wallet payment method
       const txid = await wallet._request({
         method: "sendBitcoin",
         params: {
@@ -177,6 +195,149 @@ export default function HomePage() {
     return userPurchases.length * COLLECTION_STATS.airdropPerNFT;
   };
 
+  // ============ ARENA logic (NEW) ============
+
+  const refreshLeaderboard = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const entries: LBEntry[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('motodogs_points_')) continue;
+      const addr = key.substring('motodogs_points_'.length);
+      const pts = parseInt(localStorage.getItem(key) || '0', 10);
+      if (pts <= 0) continue;
+      const name = localStorage.getItem(`motodogs_username_${addr}`) || 'ANON';
+      let wins = 0;
+      try {
+        const s = JSON.parse(localStorage.getItem(`motodogs_stats_${addr}`) || '{}');
+        wins = s.wins || 0;
+      } catch {}
+      entries.push({ addr, name, pts, wins });
+    }
+    entries.sort((a, b) => b.pts - a.pts);
+    setLeaderboard(entries.slice(0, 10));
+  }, []);
+
+  useEffect(() => { refreshLeaderboard(); }, [refreshLeaderboard]);
+
+  // Load user data when wallet connects
+  useEffect(() => {
+    if (!isConnected || !account) {
+      setUsername('');
+      setPlayerPoints(0);
+      setPlayerStats(DEFAULT_STATS);
+      return;
+    }
+    const stored = localStorage.getItem(`motodogs_username_${account.address}`);
+    if (stored) {
+      setUsername(stored);
+    } else {
+      setShowUsernameModal(true);
+      setUsernameInput('');
+    }
+    const pts = parseInt(localStorage.getItem(`motodogs_points_${account.address}`) || '0', 10);
+    setPlayerPoints(pts);
+    try {
+      const s = JSON.parse(localStorage.getItem(`motodogs_stats_${account.address}`) || 'null');
+      setPlayerStats(s && typeof s === 'object' ? { ...DEFAULT_STATS, ...s } : DEFAULT_STATS);
+    } catch {
+      setPlayerStats(DEFAULT_STATS);
+    }
+    refreshLeaderboard();
+  }, [isConnected, account, refreshLeaderboard]);
+
+  // Send user data to game iframe
+  const sendUserToGame = useCallback(() => {
+    if (arenaIframeRef.current?.contentWindow && username && account) {
+      arenaIframeRef.current.contentWindow.postMessage({
+        type: 'mdogs:setUser',
+        username,
+        address: account.address,
+      }, '*');
+    }
+  }, [username, account]);
+
+  useEffect(() => { sendUserToGame(); }, [sendUserToGame]);
+
+  // Listen to game events
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (!e.data || typeof e.data !== 'object') return;
+      const t = e.data.type;
+      if (typeof t !== 'string' || !t.startsWith('mdogs:')) return;
+
+      if (t === 'mdogs:ready') {
+        sendUserToGame();
+        return;
+      }
+
+      // Score events require signed-in user
+      if (!account || !username) return;
+      const addr = account.address;
+
+      if (t === 'mdogs:roundWin' || t === 'mdogs:matchWin') {
+        const pts = Number(e.data.points) || 0;
+        if (pts > 0) {
+          const cur = parseInt(localStorage.getItem(`motodogs_points_${addr}`) || '0', 10);
+          const total = cur + pts;
+          localStorage.setItem(`motodogs_points_${addr}`, String(total));
+          setPlayerPoints(total);
+        }
+        if (t === 'mdogs:matchWin') {
+          const s = { ...playerStats };
+          s.matches = (s.matches || 0) + 1;
+          s.wins = (s.wins || 0) + 1;
+          if (e.data.flawless) s.flawless = (s.flawless || 0) + 1;
+          if (e.data.characterName) s.bestWin = String(e.data.characterName);
+          localStorage.setItem(`motodogs_stats_${addr}`, JSON.stringify(s));
+          setPlayerStats(s);
+        }
+        const reason = t === 'mdogs:matchWin'
+          ? (e.data.flawless ? '💎 FLAWLESS VICTORY' : '🏆 MATCH WON')
+          : (e.data.flawless ? '⚡ FLAWLESS ROUND' : '🥊 ROUND WON');
+        setLastReward({ pts, reason });
+        window.setTimeout(() => setLastReward(null), 3800);
+        refreshLeaderboard();
+      } else if (t === 'mdogs:matchLoss') {
+        const s = { ...playerStats };
+        s.matches = (s.matches || 0) + 1;
+        localStorage.setItem(`motodogs_stats_${addr}`, JSON.stringify(s));
+        setPlayerStats(s);
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [account, username, playerStats, sendUserToGame, refreshLeaderboard]);
+
+  const confirmUsername = () => {
+    const clean = usernameInput.trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 14);
+    if (clean.length < 3) {
+      alert('Username must be 3–14 characters (letters, numbers, underscore, hyphen)');
+      return;
+    }
+    if (!account) return;
+    // prevent duplicate username across addresses
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith('motodogs_username_')) continue;
+      const existing = localStorage.getItem(key);
+      const addr = key.substring('motodogs_username_'.length);
+      if (existing && existing.toLowerCase() === clean.toLowerCase() && addr !== account.address) {
+        alert('That username is already taken. Pick another.');
+        return;
+      }
+    }
+    localStorage.setItem(`motodogs_username_${account.address}`, clean);
+    setUsername(clean);
+    setShowUsernameModal(false);
+    setUsernameInput('');
+  };
+
+  const canPlayWithPoints = isConnected && !!username;
+  const showGame = canPlayWithPoints || guestMode;
+  const winRate = playerStats.matches > 0 ? Math.round((playerStats.wins / playerStats.matches) * 100) : 0;
+
+  // ============ RENDER ============
   return (
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none opacity-5 z-0">
@@ -217,6 +378,9 @@ export default function HomePage() {
             <div className="hidden md:flex items-center gap-8">
               <button onClick={() => scrollToSection('story')} className="text-sm font-semibold hover:text-cyan-400 transition">STORY</button>
               <button onClick={() => scrollToSection('collection')} className="text-sm font-semibold hover:text-cyan-400 transition">COLLECTION</button>
+              <button onClick={() => scrollToSection('arena')} className="text-sm font-semibold hover:text-orange-400 transition flex items-center gap-1">
+                <Gamepad2 size={14}/> ARENA
+              </button>
               <button onClick={() => scrollToSection('roadmap')} className="text-sm font-semibold hover:text-cyan-400 transition">ROADMAP</button>
               <Link href="/inventory" className="text-sm font-semibold hover:text-cyan-400 transition">MY INVENTORY</Link>
               <Link href="/airdrop" className="text-sm font-semibold hover:text-cyan-400 transition">AIRDROP</Link>
@@ -329,6 +493,247 @@ export default function HomePage() {
                 </div>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ============ ARENA SECTION (NEW) ============ */}
+      <section id="arena" className="relative py-20 px-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-10"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-4 bg-orange-500/10 border border-orange-400/30 rounded-full">
+              <Flame size={14} className="text-orange-400"/>
+              <span className="text-xs font-mono text-orange-300 tracking-widest">CHROME PACK ARENA · BETA</span>
+            </div>
+            <h2 className="text-5xl md:text-6xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-400 to-purple-400">
+              BRAWL. WIN. EARN MDOG.
+            </h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              Pick your fighter. Beat the CPU. Every round won, every flawless victory stacks real MDOG tokens on your address.
+            </p>
+          </motion.div>
+
+          {/* Main grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Game column (2/3) */}
+            <div className="lg:col-span-2 space-y-4">
+              {/* Arcade cabinet frame */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                className="relative"
+              >
+                <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/40 via-pink-500/40 to-cyan-500/40 rounded-2xl blur-lg opacity-60" />
+                <div className="relative bg-black border-2 border-orange-400/40 rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(247,147,26,0.15)]">
+                  {/* Cabinet top bar */}
+                  <div className="flex items-center justify-between px-4 py-2 bg-gradient-to-r from-orange-500/20 to-transparent border-b border-orange-400/20">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span className="text-[10px] font-mono tracking-widest text-orange-300">LIVE · CABINET #01</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-gray-500">
+                      <Volume2 size={11}/>
+                      <span>CLICK GAME TO ENABLE SFX</span>
+                    </div>
+                  </div>
+
+                  {/* Game / prompt area */}
+                  <div className="relative aspect-video bg-black">
+                    {showGame ? (
+                      <iframe
+                        ref={arenaIframeRef}
+                        src="/brawl.html"
+                        title="MotoDog Brawl"
+                        className="absolute inset-0 w-full h-full border-0"
+                        allow="autoplay; gamepad"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-black via-purple-950/20 to-black">
+                        <motion.div
+                          animate={{ y: [0, -6, 0] }}
+                          transition={{ repeat: Infinity, duration: 2.4 }}
+                          className="mb-5"
+                        >
+                          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-500/20 to-pink-500/20 border border-orange-400/40 flex items-center justify-center">
+                            <Gamepad2 size={36} className="text-orange-400"/>
+                          </div>
+                        </motion.div>
+                        <h3 className="text-2xl md:text-3xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-400">
+                          READY TO BRAWL?
+                        </h3>
+                        <p className="text-gray-400 text-sm mb-6 max-w-md">
+                          Connect your wallet and pick a username to start earning MDOG tokens on the leaderboard.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <button
+                            onClick={connect}
+                            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full font-bold text-sm hover:scale-105 transition"
+                          >
+                            <WalletIcon size={16}/> CONNECT WALLET
+                          </button>
+                          <button
+                            onClick={() => setGuestMode(true)}
+                            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/5 border border-white/10 rounded-full font-bold text-sm hover:bg-white/10 transition"
+                          >
+                            PLAY AS GUEST <span className="text-gray-500 text-[10px]">· no points</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Cabinet bottom: player badge + reward */}
+                  <div className="flex items-center justify-between px-4 py-2 bg-black border-t border-orange-400/20">
+                    <div className="flex items-center gap-2 text-[11px] font-mono">
+                      <UserIcon size={11} className="text-cyan-400"/>
+                      <span className="text-gray-500">PLAYER:</span>
+                      <span className="text-cyan-300">
+                        {username ? username.toUpperCase() : (guestMode ? 'GUEST' : '—')}
+                      </span>
+                      {username && (
+                        <>
+                          <span className="text-gray-600 mx-1">|</span>
+                          <Sparkles size={11} className="text-orange-400"/>
+                          <span className="text-orange-300 font-bold">{playerPoints.toLocaleString()} MDOG</span>
+                        </>
+                      )}
+                    </div>
+                    {username && (
+                      <button
+                        onClick={() => { setUsernameInput(username); setShowUsernameModal(true); }}
+                        className="text-[10px] font-mono text-gray-500 hover:text-cyan-400 transition"
+                      >
+                        CHANGE NAME
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Scoring rules */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { icon: Zap, label: 'Round Win', value: '+50', color: 'text-cyan-300' },
+                  { icon: Trophy, label: 'Match Win', value: '+200', color: 'text-orange-300' },
+                  { icon: Award, label: 'Flawless Round', value: '+100', color: 'text-pink-300' },
+                  { icon: Sparkles, label: 'Flawless Match', value: '+500', color: 'text-purple-300' },
+                ].map((r, i) => (
+                  <div key={i} className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/10 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <r.icon size={13} className={r.color}/>
+                      <span className="text-[10px] font-mono text-gray-500 tracking-wider">{r.label}</span>
+                    </div>
+                    <div className={`text-lg font-black ${r.color}`}>{r.value} <span className="text-xs text-gray-500">MDOG</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Sidebar (1/3) */}
+            <aside className="space-y-4">
+              {/* My stats */}
+              {username && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  className="relative bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-cyan-400/20 rounded-2xl p-5"
+                >
+                  <div className="flex items-center gap-2 mb-4">
+                    <UserIcon size={14} className="text-cyan-400"/>
+                    <h3 className="text-xs font-mono text-cyan-300 tracking-widest">YOUR STATS</h3>
+                  </div>
+                  <p className="text-2xl font-black text-white mb-1 truncate">{username}</p>
+                  <p className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-400 mb-4">
+                    {playerPoints.toLocaleString()} <span className="text-sm text-gray-500">MDOG</span>
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-black/40 rounded-lg py-2">
+                      <div className="text-lg font-black text-cyan-300">{playerStats.wins}</div>
+                      <div className="text-[9px] font-mono text-gray-500">WINS</div>
+                    </div>
+                    <div className="bg-black/40 rounded-lg py-2">
+                      <div className="text-lg font-black text-purple-300">{winRate}%</div>
+                      <div className="text-[9px] font-mono text-gray-500">WIN RATE</div>
+                    </div>
+                    <div className="bg-black/40 rounded-lg py-2">
+                      <div className="text-lg font-black text-pink-300">{playerStats.flawless}</div>
+                      <div className="text-[9px] font-mono text-gray-500">FLAWLESS</div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Leaderboard */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="bg-gradient-to-br from-orange-500/5 to-pink-500/5 border border-orange-400/20 rounded-2xl p-5"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Trophy size={14} className="text-orange-400"/>
+                    <h3 className="text-xs font-mono text-orange-300 tracking-widest">LEADERBOARD</h3>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-600">TOP 10</span>
+                </div>
+
+                {leaderboard.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-gray-500">
+                    No fighters yet.<br/>
+                    <span className="text-orange-400 font-bold">Be the first legend.</span>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {leaderboard.map((e, idx) => {
+                      const isMe = account && e.addr === account.address;
+                      const medal = ['🥇','🥈','🥉'][idx];
+                      return (
+                        <div
+                          key={e.addr}
+                          className={`flex items-center gap-2 px-2 py-2 rounded-lg transition ${
+                            isMe
+                              ? 'bg-cyan-500/15 border border-cyan-400/40'
+                              : 'hover:bg-white/5 border border-transparent'
+                          }`}
+                        >
+                          <div className="w-7 text-center font-black text-sm">
+                            {medal || <span className="text-gray-600">{idx + 1}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className={`text-sm font-bold truncate ${isMe ? 'text-cyan-300' : 'text-white'}`}>
+                              {e.name}{isMe && <span className="text-[9px] font-mono text-cyan-400 ml-1">· YOU</span>}
+                            </div>
+                            <div className="text-[10px] font-mono text-gray-600 truncate">
+                              {e.addr.slice(0,6)}...{e.addr.slice(-4)} · {e.wins}W
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-black text-orange-300">{e.pts.toLocaleString()}</div>
+                            <div className="text-[9px] font-mono text-gray-600">MDOG</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {!canPlayWithPoints && (
+                  <div className="mt-4 pt-4 border-t border-white/5 text-[10px] font-mono text-gray-500 leading-relaxed">
+                    Connect your wallet + pick a username to appear on the board.
+                  </div>
+                )}
+              </motion.div>
+            </aside>
           </div>
         </div>
       </section>
@@ -483,6 +888,99 @@ export default function HomePage() {
                 </div>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ============ USERNAME MODAL (NEW) ============ */}
+      <AnimatePresence>
+        {showUsernameModal && (
+          <motion.div
+            className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[60] flex items-center justify-center p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="relative bg-gradient-to-br from-orange-500/10 via-pink-500/5 to-purple-500/10 border border-orange-400/30 rounded-3xl max-w-md w-full p-8"
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+            >
+              <div className="absolute -top-4 -left-4 w-20 h-20 bg-orange-500/30 rounded-full blur-2xl" />
+              <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-pink-500/30 rounded-full blur-2xl" />
+              <div className="relative">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center">
+                    <UserIcon size={22} className="text-black" strokeWidth={3}/>
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black">CLAIM YOUR HANDLE</h3>
+                    <p className="text-xs font-mono text-gray-500 tracking-wider">BEFORE YOU RIDE</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-400 mb-5 leading-relaxed">
+                  Pick a name for the leaderboard. This is how the Chrome Pack will know you.
+                  Linked to your wallet — you only do this once.
+                </p>
+
+                <div className="relative mb-2">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 font-mono text-sm">@</span>
+                  <input
+                    autoFocus
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') confirmUsername(); }}
+                    placeholder="dieselhead"
+                    maxLength={14}
+                    className="w-full pl-9 pr-4 py-3 bg-black/60 border border-orange-400/30 rounded-xl text-white font-mono text-lg focus:outline-none focus:border-orange-400 transition"
+                  />
+                </div>
+                <p className="text-[10px] font-mono text-gray-600 mb-6">
+                  3–14 chars · letters, numbers, _, -
+                </p>
+
+                <div className="flex gap-3">
+                  {username && (
+                    <button
+                      onClick={() => { setShowUsernameModal(false); setUsernameInput(''); }}
+                      className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full font-bold text-sm transition"
+                    >
+                      CANCEL
+                    </button>
+                  )}
+                  <button
+                    onClick={confirmUsername}
+                    className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-black rounded-full font-black text-sm hover:scale-[1.02] transition"
+                  >
+                    {username ? 'UPDATE' : 'LOCK IT IN'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ============ REWARD TOAST (NEW) ============ */}
+      <AnimatePresence>
+        {lastReward && (
+          <motion.div
+            className="fixed bottom-8 right-8 z-[55] pointer-events-none"
+            initial={{ opacity: 0, x: 40, scale: 0.9 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: 40, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+          >
+            <div className="relative">
+              <div className="absolute inset-0 bg-orange-500/40 blur-2xl rounded-2xl" />
+              <div className="relative bg-black border-2 border-orange-400/60 rounded-2xl px-6 py-4 shadow-[0_0_30px_rgba(247,147,26,0.4)]">
+                <div className="text-[10px] font-mono text-orange-300 tracking-widest mb-1">{lastReward.reason}</div>
+                <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-400">
+                  +{lastReward.pts.toLocaleString()} <span className="text-sm text-gray-400">MDOG</span>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
