@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter,
-  Gamepad2, Trophy, Award, Flame, Volume2, User as UserIcon, Sparkles
+  Gamepad2, Trophy, Award, Flame, Volume2, User as UserIcon, Sparkles,
+  Maximize2, RotateCcw, Smartphone
 } from 'lucide-react';
 import { MOTODOGS, PRESALE_WALLET, COLLECTION_STATS, MotoDog } from '../config/nfts';
 import Link from 'next/link';
@@ -43,6 +44,12 @@ export default function HomePage() {
   const [lastReward, setLastReward] = useState<{ pts: number; reason: string } | null>(null);
   const [guestMode, setGuestMode] = useState(false);
   const arenaIframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Fullscreen / mobile arena (NEW)
+  const [fullscreen, setFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPortrait, setIsPortrait] = useState(false);
+  const fullscreenIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     const targetDate = new Date('2026-05-22T00:00:00Z').getTime();
@@ -220,6 +227,50 @@ export default function HomePage() {
 
   useEffect(() => { refreshLeaderboard(); }, [refreshLeaderboard]);
 
+  // Device + orientation detection (NEW)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+      setIsPortrait(window.innerHeight > window.innerWidth);
+    };
+    check();
+    window.addEventListener('resize', check);
+    window.addEventListener('orientationchange', check);
+    return () => {
+      window.removeEventListener('resize', check);
+      window.removeEventListener('orientationchange', check);
+    };
+  }, []);
+
+  // Fullscreen lifecycle: lock scroll, try native fullscreen + landscape on mobile (NEW)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (fullscreen) {
+      document.body.style.overflow = 'hidden';
+      const el = document.documentElement as any;
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+      if (req) { try { req.call(el); } catch {} }
+      const orient = (screen as any).orientation;
+      if (orient?.lock) { try { orient.lock('landscape').catch(() => {}); } catch {} }
+    } else {
+      document.body.style.overflow = '';
+      const d = document as any;
+      if (d.fullscreenElement || d.webkitFullscreenElement) {
+        try { (d.exitFullscreen || d.webkitExitFullscreen)?.call(d); } catch {}
+      }
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [fullscreen]);
+
+  // Close fullscreen on Escape
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
+
   // Load user data when wallet connects
   useEffect(() => {
     if (!isConnected || !account) {
@@ -246,14 +297,17 @@ export default function HomePage() {
     refreshLeaderboard();
   }, [isConnected, account, refreshLeaderboard]);
 
-  // Send user data to game iframe
+  // Send user data to game iframe(s)
   const sendUserToGame = useCallback(() => {
-    if (arenaIframeRef.current?.contentWindow && username && account) {
-      arenaIframeRef.current.contentWindow.postMessage({
-        type: 'mdogs:setUser',
-        username,
-        address: account.address,
-      }, '*');
+    const msg = username && account
+      ? { type: 'mdogs:setUser', username, address: account.address }
+      : null;
+    if (!msg) return;
+    if (arenaIframeRef.current?.contentWindow) {
+      arenaIframeRef.current.contentWindow.postMessage(msg, '*');
+    }
+    if (fullscreenIframeRef.current?.contentWindow) {
+      fullscreenIframeRef.current.contentWindow.postMessage(msg, '*');
     }
   }, [username, account]);
 
@@ -538,23 +592,27 @@ export default function HomePage() {
                       <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                       <span className="text-[10px] font-mono tracking-widest text-orange-300">LIVE · CABINET #01</span>
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-gray-500">
-                      <Volume2 size={11}/>
-                      <span>CLICK GAME TO ENABLE SFX</span>
+                    <div className="flex items-center gap-3">
+                      {showGame && (
+                        <button
+                          onClick={() => setFullscreen(true)}
+                          className="flex items-center gap-1.5 text-[10px] font-mono tracking-widest text-orange-300 hover:text-orange-200 transition"
+                          aria-label="Play fullscreen"
+                        >
+                          <Maximize2 size={11}/>
+                          <span className="hidden sm:inline">FULLSCREEN</span>
+                        </button>
+                      )}
+                      <div className="hidden md:flex items-center gap-1.5 text-[10px] font-mono text-gray-500">
+                        <Volume2 size={11}/>
+                        <span>CLICK TO ENABLE SFX</span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Game / prompt area */}
                   <div className="relative aspect-video bg-black">
-                    {showGame ? (
-                      <iframe
-                        ref={arenaIframeRef}
-                        src="/brawl.html"
-                        title="MotoDog Brawl"
-                        className="absolute inset-0 w-full h-full border-0"
-                        allow="autoplay; gamepad"
-                      />
-                    ) : (
+                    {!showGame ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-br from-black via-purple-950/20 to-black">
                         <motion.div
                           animate={{ y: [0, -6, 0] }}
@@ -586,6 +644,54 @@ export default function HomePage() {
                           </button>
                         </div>
                       </div>
+                    ) : isMobile ? (
+                      // Mobile: big tap-to-play card (the embedded preview is too small to play)
+                      <button
+                        onClick={() => setFullscreen(true)}
+                        className="group absolute inset-0 flex flex-col items-center justify-center p-6 text-center overflow-hidden"
+                      >
+                        {/* Animated backdrop */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-950/40 via-black to-purple-950/40" />
+                        <motion.div
+                          className="absolute inset-0 opacity-30"
+                          animate={{ backgroundPosition: ['0% 0%', '100% 100%'] }}
+                          transition={{ repeat: Infinity, duration: 14, ease: 'linear' }}
+                          style={{
+                            backgroundImage: 'radial-gradient(circle at 20% 30%, #F7931A33 0%, transparent 40%), radial-gradient(circle at 80% 70%, #FF3E8B33 0%, transparent 40%)',
+                            backgroundSize: '200% 200%'
+                          }}
+                        />
+                        {/* Scanlines */}
+                        <div className="absolute inset-0 pointer-events-none opacity-20"
+                          style={{ backgroundImage: 'repeating-linear-gradient(0deg, rgba(255,255,255,.1) 0 1px, transparent 1px 3px)' }} />
+                        <div className="relative z-10 flex flex-col items-center gap-3">
+                          <motion.div
+                            animate={{ scale: [1, 1.08, 1] }}
+                            transition={{ repeat: Infinity, duration: 1.8 }}
+                            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 flex items-center justify-center shadow-[0_0_30px_rgba(247,147,26,0.6)]"
+                          >
+                            <Gamepad2 size={28} className="text-black" strokeWidth={2.5}/>
+                          </motion.div>
+                          <div className="text-2xl font-black tracking-tight text-white">
+                            TAP TO BRAWL
+                          </div>
+                          <div className="flex items-center gap-1.5 text-[10px] font-mono text-orange-300/90 tracking-widest">
+                            <Maximize2 size={10}/> FULLSCREEN LANDSCAPE
+                          </div>
+                          <div className="mt-1 text-[11px] text-gray-500 max-w-[260px]">
+                            Turn your phone sideways once the arena opens
+                          </div>
+                        </div>
+                      </button>
+                    ) : (
+                      // Desktop: embedded iframe
+                      <iframe
+                        ref={arenaIframeRef}
+                        src="/brawl.html"
+                        title="MotoDog Brawl"
+                        className="absolute inset-0 w-full h-full border-0"
+                        allow="autoplay; gamepad"
+                      />
                     )}
                   </div>
 
@@ -838,6 +944,75 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ============ FULLSCREEN GAME MODAL (NEW) ============ */}
+      <AnimatePresence>
+        {fullscreen && (
+          <motion.div
+            className="fixed inset-0 z-[65] bg-black"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* Game iframe — always mounted while fullscreen is open so game state persists through rotation */}
+            <iframe
+              ref={fullscreenIframeRef}
+              src={`/brawl.html${username && account ? `?username=${encodeURIComponent(username)}&address=${encodeURIComponent(account.address)}` : ''}`}
+              title="MotoDog Brawl — Fullscreen"
+              className="absolute inset-0 w-full h-full border-0"
+              allow="autoplay; gamepad; fullscreen"
+              onLoad={sendUserToGame}
+            />
+
+            {/* Rotate-device overlay on mobile portrait */}
+            {isMobile && isPortrait && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 z-[2] bg-gradient-to-br from-black via-purple-950/80 to-black flex flex-col items-center justify-center gap-6 p-8 text-center"
+              >
+                <motion.div
+                  animate={{ rotate: [0, 90, 90, 0], scale: [1, 1, 1.08, 1] }}
+                  transition={{ repeat: Infinity, duration: 3, times: [0, 0.4, 0.6, 1], ease: 'easeInOut' }}
+                  className="relative"
+                >
+                  <div className="absolute inset-0 bg-orange-500/40 blur-3xl rounded-full" />
+                  <Smartphone size={72} className="relative text-orange-400" strokeWidth={1.5}/>
+                </motion.div>
+                <div>
+                  <div className="text-xs font-mono tracking-[0.3em] text-orange-300 mb-2">STEP 1 OF 1</div>
+                  <h3 className="text-3xl font-black mb-3 text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-pink-400">
+                    ROTATE YOUR DEVICE
+                  </h3>
+                  <p className="text-gray-400 text-sm max-w-xs mx-auto leading-relaxed">
+                    The arena fights in landscape. Turn your phone sideways to enter the Chrome Pack.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-mono text-gray-600 mt-4">
+                  <RotateCcw size={11}/> AUTO-ENTERS WHEN LANDSCAPE
+                </div>
+              </motion.div>
+            )}
+
+            {/* Close button */}
+            <button
+              onClick={() => setFullscreen(false)}
+              className="absolute top-3 right-3 z-[3] w-11 h-11 rounded-full bg-black/80 border border-white/20 backdrop-blur flex items-center justify-center text-white hover:bg-white hover:text-black hover:border-white transition"
+              aria-label="Exit fullscreen"
+            >
+              <CloseIcon size={20}/>
+            </button>
+
+            {/* Subtle hint for desktop */}
+            {!isMobile && (
+              <div className="absolute top-3 left-3 z-[3] px-3 py-1.5 rounded-full bg-black/60 border border-white/10 text-[10px] font-mono text-gray-400 tracking-widest pointer-events-none">
+                PRESS ESC TO EXIT
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {selectedNFT && (
           <motion.div
@@ -966,7 +1141,7 @@ export default function HomePage() {
       <AnimatePresence>
         {lastReward && (
           <motion.div
-            className="fixed bottom-8 right-8 z-[55] pointer-events-none"
+            className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[80] pointer-events-none"
             initial={{ opacity: 0, x: 40, scale: 0.9 }}
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 40, scale: 0.9 }}
