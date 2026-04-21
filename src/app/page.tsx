@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X as CloseIcon, Wallet as WalletIcon, Loader2, Zap, Target, Rocket, Twitter,
   Gamepad2, Trophy, Award, Flame, Volume2, User as UserIcon, Sparkles,
-  Maximize2, RotateCcw, Smartphone
+  Maximize2, RotateCcw, Smartphone, Cpu
 } from 'lucide-react';
 import { MOTODOGS, PRESALE_WALLET, COLLECTION_STATS, MotoDog } from '../config/nfts';
 import Link from 'next/link';
 import PurchaseTicker from '../components/PurchaseTicker';
+import { MiningProvider, MiningPill, MiningSection } from '../components/MiningWidget';
 
 const AMOUNT_SATS = 7442;
 const AMOUNT_BTC = (AMOUNT_SATS / 100000000).toFixed(8);
@@ -51,6 +52,9 @@ export default function HomePage() {
   const [isPortrait, setIsPortrait] = useState(false);
   const fullscreenIframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Mining widget — count NFTs owned by connected wallet (NEW)
+  const [nftsOwned, setNftsOwned] = useState(0);
+
   useEffect(() => {
     const targetDate = new Date('2026-05-22T00:00:00Z').getTime();
     const interval = setInterval(() => {
@@ -76,6 +80,22 @@ export default function HomePage() {
       setTotalMinted(purchases);
     }
   }, []);
+
+  // Mining widget — count the connected wallet's NFTs (NEW)
+  useEffect(() => {
+    if (!account || typeof window === 'undefined') {
+      setNftsOwned(0);
+      return;
+    }
+    const count = Object.keys(localStorage)
+      .filter(k => k.startsWith('purchase_'))
+      .map(k => {
+        try { return JSON.parse(localStorage.getItem(k) || '{}'); } catch { return {}; }
+      })
+      .filter(p => p && p.address === account.address)
+      .length;
+    setNftsOwned(count);
+  }, [account, totalMinted]);
 
   const getWallet = () => {
     if (typeof window === 'undefined') return null;
@@ -393,6 +413,11 @@ export default function HomePage() {
 
   // ============ RENDER ============
   return (
+    <MiningProvider
+      address={account?.address ?? null}
+      username={username}
+      nftsOwned={nftsOwned}
+    >
     <div className="min-h-screen bg-black text-white relative overflow-hidden">
       <div className="fixed inset-0 pointer-events-none opacity-5 z-0">
         {typeof window !== 'undefined' && [...Array(20)].map((_, i) => (
@@ -435,6 +460,9 @@ export default function HomePage() {
               <button onClick={() => scrollToSection('arena')} className="text-sm font-semibold hover:text-orange-400 transition flex items-center gap-1">
                 <Gamepad2 size={14}/> ARENA
               </button>
+              <button onClick={() => scrollToSection('mining')} className="text-sm font-semibold hover:text-orange-400 transition flex items-center gap-1">
+                <Cpu size={14}/> MINING
+              </button>
               <button onClick={() => scrollToSection('roadmap')} className="text-sm font-semibold hover:text-cyan-400 transition">ROADMAP</button>
               <Link href="/inventory" className="text-sm font-semibold hover:text-cyan-400 transition">MY INVENTORY</Link>
               <Link href="/airdrop" className="text-sm font-semibold hover:text-cyan-400 transition">AIRDROP</Link>
@@ -450,6 +478,7 @@ export default function HomePage() {
 
               {isConnected && account ? (
                 <div className="hidden md:flex items-center gap-3">
+                  <MiningPill />
                   <div className="px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-purple-500/20 border border-cyan-400/30 rounded-full">
                     <p className="font-mono text-xs">{account.address.slice(0,6)}...{account.address.slice(-4)}</p>
                     {getUserMDOG() > 0 && (
@@ -844,6 +873,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ============ MINING STATION (NEW) ============ */}
+      <MiningSection />
+
       <section id="story" className="relative py-20 px-6">
         <div className="max-w-5xl mx-auto">
           <motion.div 
@@ -1167,5 +1199,6 @@ export default function HomePage() {
         <p className="text-xs text-gray-600 mt-2">NOT FINANCIAL ADVICE • DYOR • RIDE OR DIE 🏍️</p>
       </footer>
     </div>
+    </MiningProvider>
   );
 }
